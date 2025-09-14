@@ -1,38 +1,54 @@
 pipeline {
-    agent {
-        docker {
-            image 'maven:3.9-eclipse-temurin-17'
-            args '-v $HOME/.m2:/root/.m2'
-            reuseNode true
-        }
+    agent any
+    tools {
+        // Configure these tool names in "Manage Jenkins > Global Tool Configuration"
+        jdk 'JDK17'          // or 'JDK21' etc.
+        maven 'MAVEN_3_9'     // your configured Maven installation name
     }
-    options { timestamps() }
+    options {
+        timestamps()
+        ansiColor('xterm')
+    }
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
+                sh 'git rev-parse --short HEAD > .git/shortref'
+                script { env.GIT_SHORT_COMMIT = readFile('.git/shortref').trim() }
             }
         }
-        stage('Build') {
+        stage('Build (Compile)') {
             steps {
-                sh 'mvn -B -q clean package -DskipTests'
+                sh 'mvn -B -V -DskipTests clean compile'
             }
         }
-        stage('Test') {
+        stage('Unit Tests') {
             steps {
                 sh 'mvn -B test'
+            }
+            post {
+                always {
+                    junit 'target/surefire-reports/*.xml'
+                }
+            }
+        }
+        stage('Package') {
+            steps {
+                sh 'mvn -B -DskipTests package'
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+                }
             }
         }
     }
     post {
+        success { echo "SUCCESS for commit ${env.GIT_SHORT_COMMIT}" }
+        failure { echo "FAILED for commit ${env.GIT_SHORT_COMMIT}" }
         always {
-            // Publish JUnit results if present (Maven Surefire/Failsafe or other)
-            junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml, target/failsafe-reports/*.xml'
+            echo 'Cleaning workspace...'
+            cleanWs(deleteDirs: true, notFailBuild: true)
         }
-        success {
-            archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
-            echo "Pipeline succeeded for ${env.BRANCH_NAME ?: 'main'}"
-        }
-        failure { echo "Pipeline failed." }
     }
 }
