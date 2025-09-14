@@ -1,5 +1,5 @@
 pipeline {
-    agent any
+    agent { label 'docker-agent-alpine' }
     tools {
         maven 'maven_3.9.11'
     }
