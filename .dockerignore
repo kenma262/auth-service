@@ -1,0 +1,19 @@
+# Maven build outputs
+target/
+
+# VCS
+.git
+.gitignore
+
+# IDE / tooling
+.idea/
+*.iml
+.mvn/
+
+# Local logs
+logs/
+
+# Misc
+Dockerfile
+README.md
+
